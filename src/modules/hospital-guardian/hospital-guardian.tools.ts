@@ -1,7 +1,7 @@
 import { ToolDecorator as Tool, ExecutionContext, z } from '@nitrostack/core';
 import { evaluateVitals } from './hospital-guardian.state.js';
 import { generateAiMedicalBriefs } from '../../ai.service.js';
-import { supabase } from '../../supabase.js';
+import { db } from '../../db.js';
 
 export class HospitalGuardianTools {
   @Tool({
@@ -75,46 +75,21 @@ export class HospitalGuardianTools {
     };
 
     // 3. Insert the telemetry reading into the telemetry_logs table
-    const { data: insertedLog, error: insertError } = await supabase
-      .from('telemetry_logs')
-      .insert({
-        patient_id: '402',
-        heart_rate: telemetry.heart_rate,
-        spo2: telemetry.spo2,
-        temperature: telemetry.temperature,
-        blood_pressure: bloodPressure,
-        status,
-      })
-      .select()
-      .single();
+    const insertResult = await db.query(
+      'INSERT INTO telemetry_logs (patient_id, heart_rate, spo2, temperature, blood_pressure, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      ['402', telemetry.heart_rate, telemetry.spo2, telemetry.temperature, bloodPressure, status]
+    );
+    const insertedLog = insertResult.rows[0];
 
-    if (insertError) {
-      ctx.logger.error('Failed to insert telemetry log into Supabase', {
-        message: insertError.message,
-        code: insertError.code,
-        details: insertError.details,
-      });
-      throw new Error(`Database error: ${insertError.message}`);
-    }
-
-    ctx.logger.info('Telemetry log saved to Supabase', { id: insertedLog.id });
+    ctx.logger.info('Telemetry log saved to database', { id: insertedLog.id });
 
     // 4. Update the patient's status and condition in the patients table
-    const { error: updateError } = await supabase
-      .from('patients')
-      .update({ status, condition })
-      .eq('id', '402');
+    await db.query(
+      'UPDATE patients SET status = $1, condition = $2 WHERE id = $3',
+      [status, condition, '402']
+    );
 
-    if (updateError) {
-      ctx.logger.error('Failed to update patient in Supabase', {
-        message: updateError.message,
-        code: updateError.code,
-        details: updateError.details,
-      });
-      throw new Error(`Database error: ${updateError.message}`);
-    }
-
-    ctx.logger.info('Patient record updated in Supabase', { status, condition });
+    ctx.logger.info('Patient record updated in database', { status, condition });
 
     // 5. Generate alert warnings (nurse checklist + doctor brief) via AI (or fallback) if critical
     let nurse_checklist = '';
@@ -126,36 +101,19 @@ export class HospitalGuardianTools {
       doctor_brief = briefs.doctor_brief;
 
       // 5a. Persist the AI-generated briefs into the telemetry_logs record
-      const { error: briefsUpdateError } = await supabase
-        .from('telemetry_logs')
-        .update({ nurse_checklist, doctor_brief })
-        .eq('id', insertedLog.id);
-
-      if (briefsUpdateError) {
-        ctx.logger.error('Failed to persist AI briefs to telemetry_logs', {
-          message: briefsUpdateError.message,
-          code: briefsUpdateError.code,
-          details: briefsUpdateError.details,
-        });
-      } else {
-        ctx.logger.info('AI-generated briefs saved to telemetry_logs', {
-          logId: insertedLog.id,
-        });
-      }
+      await db.query(
+        'UPDATE telemetry_logs SET nurse_checklist = $1, doctor_brief = $2 WHERE id = $3',
+        [nurse_checklist, doctor_brief, insertedLog.id]
+      );
+      ctx.logger.info('AI-generated briefs saved to telemetry_logs', {
+        logId: insertedLog.id,
+      });
 
       // 5b. Also persist the AI briefs into the patients table
-      const { error: patientBriefsError } = await supabase
-        .from('patients')
-        .update({ nurse_checklist, doctor_brief })
-        .eq('id', '402');
-
-      if (patientBriefsError) {
-        ctx.logger.error('Failed to persist AI briefs to patients table', {
-          message: patientBriefsError.message,
-          code: patientBriefsError.code,
-          details: patientBriefsError.details,
-        });
-      }
+      await db.query(
+        'UPDATE patients SET nurse_checklist = $1, doctor_brief = $2 WHERE id = $3',
+        [nurse_checklist, doctor_brief, '402']
+      );
     }
 
     // 6. Return the saved DB entry along with alert warnings

@@ -1,5 +1,5 @@
 import { ResourceDecorator as Resource, ExecutionContext } from '@nitrostack/core';
-import { supabase } from '../../supabase.js';
+import { db } from '../../db.js';
 
 export class HospitalGuardianResources {
   @Resource({
@@ -22,42 +22,23 @@ export class HospitalGuardianResources {
     },
   })
   async getPatientVitals(uri: string, ctx: ExecutionContext) {
-    ctx.logger.info('Fetching patient vitals from Supabase');
+    ctx.logger.info('Fetching patient vitals from database');
 
     // Fetch the patient record
-    const { data: patient, error: patientError } = await supabase
-      .from('patients')
-      .select('*')
-      .eq('id', '402')
-      .single();
+    const patientResult = await db.query('SELECT * FROM patients WHERE id = $1', ['402']);
+    const patient = patientResult.rows[0];
 
-    if (patientError) {
-      ctx.logger.error('Failed to fetch patient from Supabase', {
-        message: patientError.message,
-        code: patientError.code,
-        details: patientError.details,
-      });
-      throw new Error(`Database error: ${patientError.message}`);
+    if (!patient) {
+      ctx.logger.error('Failed to fetch patient from database');
+      throw new Error('Database error: Patient not found');
     }
 
     // Fetch the latest telemetry log for this patient
-    const { data: telemetry, error: telemetryError } = await supabase
-      .from('telemetry_logs')
-      .select('*')
-      .eq('patient_id', '402')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    if (telemetryError && telemetryError.code !== 'PGRST116') {
-      // PGRST116 = no rows returned (no telemetry yet) — that's okay
-      ctx.logger.error('Failed to fetch telemetry from Supabase', {
-        message: telemetryError.message,
-        code: telemetryError.code,
-        details: telemetryError.details,
-      });
-      throw new Error(`Database error: ${telemetryError.message}`);
-    }
+    const telemetryResult = await db.query(
+      'SELECT * FROM telemetry_logs WHERE patient_id = $1 ORDER BY created_at DESC LIMIT 1',
+      ['402']
+    );
+    const telemetry = telemetryResult.rows[0];
 
     // Build the response combining patient info + latest telemetry
     const vitals = {

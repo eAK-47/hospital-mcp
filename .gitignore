@@ -1,0 +1,6 @@
+node_modules/
+dist/
+.env
+src/widgets/node_modules/
+src/widgets/.next/
+src/widgets/out/

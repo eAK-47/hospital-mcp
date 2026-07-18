@@ -1,0 +1,46 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  background: #0b1220;
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    linear-gradient(180deg, rgba(37, 99, 235, 0.08), transparent 310px),
+    #0b1220;
+  color: #ffffff;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+.panel {
+  @apply rounded-lg border border-hospital-border bg-hospital-card shadow-panel;
+}
+
+.focus-ring {
+  @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-hospital-blue focus-visible:ring-offset-2 focus-visible:ring-offset-hospital-bg;
+}
+
+.ecg-grid {
+  background-image:
+    linear-gradient(rgba(36, 52, 74, 0.55) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(36, 52, 74, 0.55) 1px, transparent 1px);
+  background-size: 28px 28px;
+}

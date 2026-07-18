@@ -1,0 +1,50 @@
+[
+  {
+    "id": "h-1",
+    "patientId": "ICU-101",
+    "time": "21:54",
+    "title": "Patient Admitted",
+    "description": "Patient moved to ICU Bed 4 and monitoring was started.",
+    "status": "Observation"
+  },
+  {
+    "id": "h-2",
+    "patientId": "ICU-101",
+    "time": "21:58",
+    "title": "Vitals Stable",
+    "description": "Initial vitals remained inside observation range.",
+    "status": "Stable"
+  },
+  {
+    "id": "h-3",
+    "patientId": "ICU-101",
+    "time": "22:08",
+    "title": "Heart Rate Dropped",
+    "description": "Bradycardia event recorded by telemetry simulator.",
+    "status": "Urgent"
+  },
+  {
+    "id": "h-4",
+    "patientId": "ICU-101",
+    "time": "22:18",
+    "title": "Critical Alert",
+    "description": "Oxygen saturation dropped and fever increased.",
+    "status": "Critical"
+  },
+  {
+    "id": "h-5",
+    "patientId": "ICU-101",
+    "time": "22:20",
+    "title": "Doctor Arrived",
+    "description": "Doctor notified and bedside evaluation started.",
+    "status": "Urgent"
+  },
+  {
+    "id": "h-6",
+    "patientId": "ICU-101",
+    "time": "22:25",
+    "title": "Treatment Started",
+    "description": "Emergency care protocol initiated by ICU team.",
+    "status": "Observation"
+  }
+]

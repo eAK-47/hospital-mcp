@@ -16,6 +16,9 @@ export default function DoctorPortal() {
     { label: "Respiration", value: patient.vitals.respiration, unit: "rpm", trend: "flat" }
   ];
 
+  // Get doctor brief from patient data (populated from database)
+  const doctorBrief = (patient as any).doctor_brief || "Waiting for AI Analysis...";
+
   return (
     <section>
       <PageHeader
@@ -67,7 +70,7 @@ export default function DoctorPortal() {
             <section className="panel p-5 lg:col-span-1">
               <h3 className="text-lg font-bold text-white">AI Analysis</h3>
               <div className="prose prose-invert mt-4 max-w-none text-sm text-hospital-muted">
-                <ReactMarkdown>Waiting for AI Analysis...</ReactMarkdown>
+                <ReactMarkdown>{doctorBrief}</ReactMarkdown>
               </div>
             </section>
             <section className="panel p-5 lg:col-span-1">

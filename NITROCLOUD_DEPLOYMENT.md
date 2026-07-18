@@ -35,14 +35,35 @@ Add these environment variables in the NitroCloud dashboard:
 **Note:** `AI_BASE_URL` is not needed for native Gemini SDK.
 
 #### 3. Enable Automatic Deployment
-- In NitroCloud dashboard, select your repository
+- In NitroCloud dashboard, select your repository: `eAK-47/hospital-mcp`
 - Choose branch: `member-1-mcp` (or create a `main` branch)
-- Enable "Automatic deployment" for the selected branch
+- Look for a toggle/checkbox labeled "Enable automatic deployment" or "Auto-deploy"
+- Enable it for the selected branch
 - Optionally enable "Automatic NitroChat deployment"
 
+**Important:** After enabling, the NitroCloud GitHub App will set up webhooks on your repository. Each push to the configured branch will automatically trigger a new deployment.
+
 #### 4. Deploy
-- Push to the configured branch triggers automatic deployment
-- Or manually trigger "Deploy from GitHub"
+- **Automatic:** Push to the configured branch triggers deployment automatically
+- **Manual:** Click "Deploy from GitHub" button in the dashboard
+
+### How Auto-Deployment Works:
+1. NitroCloud GitHub App monitors your repository
+2. When you push to the configured branch, it receives a webhook
+3. NitroCloud downloads the latest code
+4. Runs `npm install` and `npm run build`
+5. Deploys the application
+
+### To Test Auto-Deployment:
+```bash
+# Make a small change
+echo "# Auto-deployment test" >> README.md
+git add README.md
+git commit -m "Test auto-deployment"
+git push origin member-1-mcp
+```
+
+Check the NitroCloud dashboard for deployment status.
 
 ## Deployment Package Structure
 

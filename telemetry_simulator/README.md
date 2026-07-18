@@ -1,14 +1,30 @@
 # ICU Telemetry Simulator
 
-Generates simulated ICU patient telemetry.
+Generates simulated ICU patient telemetry for the Hospital Guardian system.
+
+## Project Structure
+
+```
+telemetry_simulator/
+├── simulator.py         # Main entry point - runs the interactive simulator
+├── vitals.py            # VitalEngine class - generates vital signs for different conditions
+├── ecg.py               # ECGGenerator class - generates ECG waveform data
+├── constants.py         # Status/condition constants and color mappings
+├── config.py            # Configuration dataclasses (PatientConfig, VitalRanges, etc.)
+├── db_config.py         # PostgreSQL database integration
+├── ai_client.py         # AI brief generation (nurse checklists, doctor briefs)
+├── init_db.py           # Database schema initialization
+├── test_db.py           # Database connection tests
+└── requirements.txt     # Python dependencies
+```
 
 ## Data Generated
 
-- Heart Rate
-- SpO2
-- Temperature
-- Blood Pressure
-- ECG
+- **Heart Rate** - BPM (varies by condition)
+- **SpO2** - Oxygen saturation percentage
+- **Temperature** - Body temperature in Celsius
+- **Blood Pressure** - Systolic/Diastolic values
+- **ECG** - Waveform data (250 samples/second)
 
 ## Database Integration
 
@@ -18,7 +34,7 @@ The simulator saves telemetry data directly to PostgreSQL database (Neon.tech).
 
 1. Install Python dependencies:
    ```bash
-   pip install -r requirments.txt
+   pip install -r requirements.txt
    ```
 
 2. Initialize the database schema:
@@ -35,6 +51,8 @@ The simulator saves telemetry data directly to PostgreSQL database (Neon.tech).
 
 - `DB_ENABLED=true` - Enable/disable database integration (default: true)
 - `DATABASE_URL` - PostgreSQL connection string (configured for Neon.tech)
+- `AI_BASE_URL` - AI API endpoint (optional, for AI briefs)
+- `AI_API_KEY` - AI API key (optional, falls back to templates)
 
 ### Database Schema
 
@@ -58,12 +76,12 @@ All team members can use the same database by:
 
 ### Scenarios
 
-1. Normal
-2. Bradycardia
-3. Tachycardia
-4. Hypoxia
-5. High Fever
-6. Hypotension
-7. Cardiac Arrest
+1. Normal - Stable vital signs
+2. Bradycardia - Heart rate below 50 BPM
+3. Tachycardia - Heart rate above 120 BPM
+4. Hypoxia - SpO2 below 90%
+5. High Fever - Temperature above 39°C
+6. Hypotension - Low blood pressure
+7. Cardiac Arrest - No pulse/respiration
 
 Select a scenario to simulate ICU patient telemetry with realistic vital signs and alerts.

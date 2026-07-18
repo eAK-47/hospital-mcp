@@ -15,18 +15,36 @@ ICU Patient Monitoring System with AI-powered medical briefs and real-time telem
 ├── src/                    # MCP Server (TypeScript)
 │   ├── modules/             # MCP modules
 │   │   └── hospital-guardian/ # Patient monitoring module
+│   │       ├── hospital-guardian.tools.ts
+│   │       └── hospital-guardian.resources.ts
 │   ├── http-api.ts          # HTTP API server
-│   └── db.ts                # PostgreSQL connection
+│   ├── db.ts                # PostgreSQL connection
+│   ├── ai.service.ts        # AI integration service
+│   └── index.ts             # Server entry point
 ├── frontend/                # Frontend (React + TypeScript)
 │   ├── src/
 │   │   ├── components/      # UI components
 │   │   ├── pages/           # Page components
-│   │   └── services/        # API services
-│   └── package.json
-└── telemetry_simulator/     # Python telemetry simulator
-    ├── simulator.py
-    ├── db_config.py
-    └── ai_client.py
+│   │   ├── services/        # API services
+│   │   └── types/           # TypeScript types
+│   ├── index.html
+│   ├── package.json
+│   └── vite.config.ts
+├── telemetry_simulator/     # Python telemetry simulator
+│   ├── simulator.py         # Main simulator entry point
+│   ├── vitals.py            # Vital signs engine
+│   ├── ecg.py               # ECG waveform generator
+│   ├── constants.py         # Constants and configuration
+│   ├── config.py            # Configuration dataclasses
+│   ├── db_config.py         # Database integration
+│   ├── ai_client.py         # AI brief generation client
+│   ├── init_db.py           # Database initialization
+│   ├── test_db.py           # Database tests
+│   └── requirements.txt     # Python dependencies
+├── schema.sql               # Database schema
+├── .gitignore
+├── .env.example
+└── README.md
 ```
 
 ## Environment Setup

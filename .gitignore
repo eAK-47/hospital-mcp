@@ -1,6 +1,19 @@
+# Node.js
 node_modules/
 dist/
-.env
 src/widgets/node_modules/
 src/widgets/.next/
 src/widgets/out/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+telemetry.json
+telemetry_simulator/telemetry.json
+
+# Environment
+.env
+.env.local
+.env.*.local

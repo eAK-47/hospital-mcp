@@ -61,10 +61,10 @@ DATABASE_URL=postgresql://neondb_owner:npg_mwEK7S9kiOPz@ep-little-meadow-awdnjdk
 # Telemetry Simulator Configuration
 DB_ENABLED=true
 
-# AI Provider Configuration
-AI_BASE_URL=https://api.openai.com/v1
-AI_API_KEY=your_openai_api_key_here
-AI_MODEL=gpt-4o-mini
+# AI Provider Configuration (Gemini)
+AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
+AI_API_KEY=your_gemini_api_key_here
+AI_MODEL=gemini-2.0-flash
 ```
 
 **Frontend (.env in frontend folder):**

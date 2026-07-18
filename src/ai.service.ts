@@ -1,17 +1,18 @@
 /**
  * AI Completion Service
  *
- * Calls a configurable OpenAI-compatible LLM endpoint to generate structured
- * nurse checklists and doctor briefs from patient vitals.
+ * Calls Gemini API to generate structured nurse checklists and doctor briefs
+ * from patient vitals.
  *
- * Configuration (via environment variables / ConfigService):
- *   AI_BASE_URL  – Base URL of the OpenAI-compatible API (optional, defaults to "https://api.openai.com/v1")
- *   AI_API_KEY   – API key for the endpoint (optional; requests proceed without Authorization if unset)
+ * Configuration (via environment variables):
+ *   AI_API_KEY   – Gemini API key
+ *   AI_MODEL     – Model name (e.g., gemini-2.0-flash, gemini-1.5-pro)
  *
  * Falls back to local template-based generation if the API call fails.
  */
 import { TelemetryInput } from './modules/hospital-guardian/hospital-guardian.state.js';
 import { buildMedicalBriefsSystemPrompt } from './modules/hospital-guardian/prompt-builder.js';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export interface AiBriefsResult {
   nurse_checklist: string; // Markdown checklist of bedside tasks
@@ -19,18 +20,23 @@ export interface AiBriefsResult {
 }
 
 /**
- * Calls the configured OpenAI-compatible LLM endpoint to generate medical briefs.
+ * Calls Gemini API to generate medical briefs.
  *
  * @param telemetry  The incoming telemetry payload.
  * @param condition  The diagnosed condition (e.g. "Bradycardia", "Cardiac Arrest").
  * @returns          AiBriefsResult or null on failure.
  */
-async function callLlm(
+async function callGemini(
   telemetry: TelemetryInput,
   condition: string
 ): Promise<AiBriefsResult | null> {
-  const baseUrl = process.env.AI_BASE_URL || 'https://api.openai.com/v1';
   const apiKey = process.env.AI_API_KEY || '';
+  const modelName = process.env.AI_MODEL || 'gemini-2.0-flash';
+
+  if (!apiKey) {
+    console.warn('No AI_API_KEY configured, skipping Gemini API call.');
+    return null;
+  }
 
   const vitals = {
     patient_id: '402',
@@ -44,62 +50,44 @@ async function callLlm(
 
   const systemPrompt = buildMedicalBriefsSystemPrompt(vitals, telemetry.ecg);
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-  if (apiKey) {
-    headers['Authorization'] = `Bearer ${apiKey}`;
-  }
-
   try {
-    const response = await fetch(`${baseUrl.replace(/\/+$/, '')}/chat/completions`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        model: process.env.AI_MODEL || 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: 'Generate the nurse checklist and doctor brief for this patient.' },
-        ],
-        response_format: { type: 'json_object' },
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: modelName,
+      generationConfig: {
         temperature: 0.3,
-        max_tokens: 1000,
-      }),
+        maxOutputTokens: 1000,
+        responseMimeType: 'application/json',
+      },
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`LLM API error (${response.status}): ${errorText}`);
-      return null;
-    }
+    const prompt = `${systemPrompt}\n\nGenerate the nurse checklist and doctor brief for this patient. Return ONLY valid JSON with nurse_checklist and doctor_brief fields.`;
 
-    const data = (await response.json()) as {
-      choices: { message: { content: string } }[];
-    };
+    const result = await model.generateContent(prompt);
+    const content = result.response.text();
 
-    const content = data.choices?.[0]?.message?.content;
     if (!content) {
-      console.error('LLM returned empty response.');
+      console.error('Gemini returned empty response.');
       return null;
     }
 
     const parsed = JSON.parse(content) as AiBriefsResult;
 
     if (typeof parsed.nurse_checklist !== 'string' || typeof parsed.doctor_brief !== 'string') {
-      console.error('LLM response missing required fields.', { parsed });
+      console.error('Gemini response missing required fields.', { parsed });
       return null;
     }
 
     return parsed;
   } catch (error) {
-    console.error('Failed to call LLM API:', error);
+    console.error('Failed to call Gemini API:', error);
     return null;
   }
 }
 
 /**
  * Primary entry point: generates nurse checklist and doctor brief using the
- * configured LLM endpoint. Falls back to local template-based generation.
+ * configured Gemini API. Falls back to local template-based generation.
  *
  * @param telemetry  Incoming telemetry payload.
  * @param condition  Diagnosed condition.
@@ -109,10 +97,10 @@ export async function generateAiMedicalBriefs(
   telemetry: TelemetryInput,
   condition: string
 ): Promise<AiBriefsResult> {
-  // Try the LLM first
-  const aiResult = await callLlm(telemetry, condition);
+  // Try Gemini first
+  const aiResult = await callGemini(telemetry, condition);
   if (aiResult) {
-    console.log('AI-generated briefs received from LLM endpoint.');
+    console.log('AI-generated briefs received from Gemini API.');
     return aiResult;
   }
 

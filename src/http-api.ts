@@ -184,7 +184,7 @@ const server = createServer(async (req, res) => {
         ]);
       }
     }
-    else if (path === '/api/telemetry' && req.method === 'POST') {
+else if (path === '/api/telemetry' && req.method === 'POST') {
       let body = '';
       req.on('data', chunk => body += chunk);
       req.on('end', async () => {
@@ -214,12 +214,35 @@ const server = createServer(async (req, res) => {
             ['402', heart_rate, spo2, temperature, bloodPressure, status]
           );
           
+          // Generate AI briefs for critical conditions
+          let nurse_checklist = '';
+          let doctor_brief = '';
+          
+          if (isCritical) {
+            const telemetry = { heart_rate, spo2, temperature, systolic, diastolic, ecg };
+            const briefs = await generateAiMedicalBriefs(telemetry, condition);
+            nurse_checklist = briefs.nurse_checklist;
+            doctor_brief = briefs.doctor_brief;
+            
+            // Update the telemetry log with AI briefs
+            await db.query(
+              'UPDATE telemetry_logs SET nurse_checklist = $1, doctor_brief = $2 WHERE id = $3',
+              [nurse_checklist, doctor_brief, result.rows[0].id]
+            );
+            
+            // Update patient with AI briefs
+            await db.query(
+              'UPDATE patients SET nurse_checklist = $1, doctor_brief = $2 WHERE id = $3',
+              [nurse_checklist, doctor_brief, '402']
+            );
+          }
+          
           await db.query(
             'UPDATE patients SET status = $1, condition = $2 WHERE id = $3',
             [status, condition, '402']
           );
           
-          sendJson(res, { success: true, data: result.rows[0] });
+          sendJson(res, { success: true, data: { ...result.rows[0], nurse_checklist, doctor_brief } });
         } catch (error: any) {
           sendJson(res, { error: error.message }, 500);
         }

@@ -1,0 +1,9 @@
+[
+  { "id": "call-doctor", "label": "Call Doctor" },
+  { "id": "crash-cart", "label": "Bring Crash Cart" },
+  { "id": "connect-ecg", "label": "Connect ECG" },
+  { "id": "prepare-medication", "label": "Prepare Emergency Medication" },
+  { "id": "maintain-airway", "label": "Maintain Airway" },
+  { "id": "monitor-bp", "label": "Monitor Blood Pressure" },
+  { "id": "prepare-defibrillator", "label": "Prepare Defibrillator if required" }
+]

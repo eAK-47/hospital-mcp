@@ -1,0 +1,16 @@
+[
+  {
+    "id": "n-1",
+    "title": "Critical alert",
+    "message": "ICU-101 requires immediate doctor review.",
+    "time": "22:18",
+    "status": "Critical"
+  },
+  {
+    "id": "n-2",
+    "title": "Observation update",
+    "message": "ICU-102 post-operative vitals are steady.",
+    "time": "22:12",
+    "status": "Observation"
+  }
+]

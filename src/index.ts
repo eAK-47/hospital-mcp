@@ -23,6 +23,11 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false },
 });
 
+// Prevent unhandled background errors on idle clients from crashing the process
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle PostgreSQL client:', err);
+});
+
 // Tool input schemas
 const GetPatientVitalsSchema = z.object({
   patient_id: z.string().describe('The patient ID to fetch vitals for'),
@@ -101,89 +106,102 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
-  switch (name) {
-    case 'get_patient_vitals': {
-      const parsed = GetPatientVitalsSchema.safeParse(args);
-      if (!parsed.success) {
+  try {
+    switch (name) {
+      case 'get_patient_vitals': {
+        const parsed = GetPatientVitalsSchema.safeParse(args);
+        if (!parsed.success) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Invalid arguments: ${parsed.error.message}`,
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        const { patient_id } = parsed.data;
+        const result = await pool.query(
+          'SELECT * FROM telemetry_logs WHERE patient_id = $1 ORDER BY created_at DESC LIMIT 5',
+          [patient_id]
+        );
+
         return {
           content: [
             {
               type: 'text',
-              text: `Invalid arguments: ${parsed.error.message}`,
+              text: JSON.stringify(result.rows, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'update_patient_status': {
+        const parsed = UpdatePatientStatusSchema.safeParse(args);
+        if (!parsed.success) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Invalid arguments: ${parsed.error.message}`,
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        const { patient_id, doctor_brief, status } = parsed.data;
+        const result = await pool.query(
+          'UPDATE patients SET doctor_brief = COALESCE($1, doctor_brief), status = COALESCE($2, status) WHERE id = $3 RETURNING *',
+          [doctor_brief ?? null, status ?? null, patient_id]
+        );
+
+        if (result.rows.length === 0) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Patient with id "${patient_id}" not found`,
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result.rows[0], null, 2),
+            },
+          ],
+        };
+      }
+
+      default:
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Unknown tool: ${name}`,
             },
           ],
           isError: true,
         };
-      }
-
-      const { patient_id } = parsed.data;
-      const result = await pool.query(
-        'SELECT * FROM telemetry_logs WHERE patient_id = $1 ORDER BY created_at DESC LIMIT 5',
-        [patient_id]
-      );
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(result.rows, null, 2),
-          },
-        ],
-      };
     }
-
-    case 'update_patient_status': {
-      const parsed = UpdatePatientStatusSchema.safeParse(args);
-      if (!parsed.success) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Invalid arguments: ${parsed.error.message}`,
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      const { patient_id, doctor_brief, status } = parsed.data;
-      const result = await pool.query(
-        'UPDATE patients SET doctor_brief = COALESCE($1, doctor_brief), status = COALESCE($2, status) WHERE id = $3 RETURNING *',
-        [doctor_brief ?? null, status ?? null, patient_id]
-      );
-
-      if (result.rows.length === 0) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Patient with id "${patient_id}" not found`,
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(result.rows[0], null, 2),
-          },
-        ],
-      };
-    }
-
-    default:
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Unknown tool: ${name}`,
-          },
-        ],
-        isError: true,
-      };
+  } catch (error) {
+    // Return a structured MCP error response instead of throwing unhandled exceptions
+    return {
+      isError: true,
+      content: [
+        {
+          type: 'text',
+          text: `Error executing ${name}: ${(error as Error).message}`,
+        },
+      ],
+    };
   }
 });
 
@@ -193,6 +211,20 @@ async function main() {
   await server.connect(transport);
   console.error('Hospital Guardian MCP server running on stdio');
 }
+
+// Graceful shutdown: drain and close the connection pool before terminating
+const shutdown = async () => {
+  console.error('Shutting down Hospital Guardian MCP server...');
+  try {
+    await pool.end();
+  } catch (err) {
+    console.error('Error closing PostgreSQL pool:', err);
+  }
+  process.exit(0);
+};
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
 
 main().catch((error) => {
   console.error('Failed to start server:', error);

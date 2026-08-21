@@ -4,8 +4,8 @@ ICU Patient Monitoring System with AI-powered medical briefs and real-time telem
 
 ## Features
 
-- **MCP Server**: Provides tools and resources for patient monitoring
-- **HTTP API**: REST endpoints for frontend integration
+- **MCP Server**: Official Anthropic Model Context Protocol SDK implementation
+- **PostgreSQL**: Direct database access via `pg` connection pool
 - **Telemetry Simulator**: Python-based simulator for testing
 - **Frontend**: React + TypeScript + Vite dashboard
 
@@ -13,14 +13,7 @@ ICU Patient Monitoring System with AI-powered medical briefs and real-time telem
 
 ```
 ├── src/                    # MCP Server (TypeScript)
-│   ├── modules/             # MCP modules
-│   │   └── hospital-guardian/ # Patient monitoring module
-│   │       ├── hospital-guardian.tools.ts
-│   │       └── hospital-guardian.resources.ts
-│   ├── http-api.ts          # HTTP API server
-│   ├── db.ts                # PostgreSQL connection
-│   ├── ai.service.ts        # AI integration service
-│   └── index.ts             # Server entry point
+│   └── index.ts            # Server entry point (MCP SDK + PostgreSQL)
 ├── frontend/                # Frontend (React + TypeScript)
 │   ├── src/
 │   │   ├── components/      # UI components
@@ -64,25 +57,11 @@ cp .env.example .env
 
 **Backend (.env):**
 ```bash
-# NitroStack Configuration
-NITRO_LOG_LEVEL=info
-NITROSTACK_APP_MODE=openai
-MCP_TRANSPORT_TYPE=dual
-
-# Server Configuration
-PORT=3000
-HOST=0.0.0.0
-
 # PostgreSQL Database Configuration (Neon.tech)
 DATABASE_URL=postgresql://neondb_owner:npg_mwEK7S9kiOPz@ep-little-meadow-awdnjdk6.c-12.us-east-1.aws.neon.tech/neondb?sslmode=require
 
 # Telemetry Simulator Configuration
 DB_ENABLED=true
-
-# AI Provider Configuration (Gemini)
-AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
-AI_API_KEY=your_gemini_api_key_here
-AI_MODEL=gemini-2.0-flash
 ```
 
 **Frontend (.env in frontend folder):**
@@ -117,8 +96,9 @@ python telemetry_simulator/init_db.py
 ### 3. Start Services
 
 ```bash
-# Terminal 1: Start Backend (MCP + HTTP API)
-npm run dev
+# Terminal 1: Start MCP Server
+npm run build
+npm start
 
 # Terminal 2: Start Frontend
 cd frontend
@@ -131,16 +111,17 @@ npm run dev
 python telemetry_simulator/simulator.py
 ```
 
-## API Endpoints
+## MCP Tools
 
-- `GET /api/patients` - List all patients
-- `GET /api/patients/:id` - Get patient by ID
-- `GET /api/patients/priority` - Get priority patient
-- `GET /api/history` - Get telemetry history
-- `GET /api/checklist` - Get nurse checklist
-- `GET /api/notifications` - Get notifications
-- `GET /api/connections` - Get connection status
-- `POST /api/telemetry` - Update telemetry data
+The server exposes the following MCP tools:
+
+- **`get_patient_vitals`**: Fetches the latest telemetry vitals for a patient
+  - Input: `{ patient_id: string }`
+  - Query: `SELECT * FROM telemetry_logs WHERE patient_id = $1 ORDER BY created_at DESC LIMIT 5`
+
+- **`update_patient_status`**: Updates a patient's doctor brief and/or status
+  - Input: `{ patient_id: string, doctor_brief?: string, status?: string }`
+  - Query: `UPDATE patients SET doctor_brief = COALESCE($1, doctor_brief), status = COALESCE($2, status) WHERE id = $3`
 
 ## Team Setup
 
@@ -154,17 +135,10 @@ All team members can use the shared Neon.tech database:
 
 ```bash
 # Backend
-npm run dev      # Start development server
-npm run build    # Build for production
-npm start        # Start production server
+npm run build    # Build TypeScript to dist/
+npm start        # Start MCP server (node dist/index.js)
 
 # Frontend
 cd frontend
 npm run dev      # Start development server
 npm run build    # Build for production
-```
-
-## Links
-
-- Docs: <https://docs.nitrostack.ai>
-- NitroStudio: <https://nitrostack.ai/studio>

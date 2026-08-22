@@ -1,51 +1,9 @@
-/**
- * Hospital Guardian MCP Server
- *
- * Official Anthropic Model Context Protocol SDK implementation
- * with direct PostgreSQL access.
- */
-
-import 'dotenv/config';
-import pg from 'pg';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js';
-import { z } from 'zod';
+import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { shutdownDatabase } from './db.js';
+import { executeTool, tools } from './tools.js';
 
-const { Pool } = pg;
-
-// Initialize PostgreSQL connection pool
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
-});
-
-// Prevent unhandled background errors on idle clients from crashing the process
-pool.on('error', (err) => {
-  console.error('Unexpected error on idle PostgreSQL client:', err);
-});
-
-// Tool input schemas
-const GetPatientVitalsSchema = z.object({
-  patient_id: z.string().describe('The patient ID to fetch vitals for'),
-});
-
-const UpdatePatientStatusSchema = z.object({
-  patient_id: z.string().describe('The patient ID to update'),
-  doctor_brief: z
-    .string()
-    .optional()
-    .describe('Optional doctor brief to set for the patient'),
-  status: z
-    .string()
-    .optional()
-    .describe('Optional status to set for the patient'),
-});
-
-// Create MCP server
 const server = new Server(
   {
     name: 'hospital-guardian-server',
@@ -55,171 +13,25 @@ const server = new Server(
     capabilities: {
       tools: {},
     },
-  }
+  },
 );
 
-// Register tool definitions
-server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [
-    {
-      name: 'get_patient_vitals',
-      description:
-        'Fetches the latest telemetry vitals for a given patient from the telemetry_logs table.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          patient_id: {
-            type: 'string',
-            description: 'The patient ID to fetch vitals for',
-          },
-        },
-        required: ['patient_id'],
-      },
-    },
-    {
-      name: 'update_patient_status',
-      description:
-        'Updates a patient\'s doctor brief and/or status in the patients table.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          patient_id: {
-            type: 'string',
-            description: 'The patient ID to update',
-          },
-          doctor_brief: {
-            type: 'string',
-            description: 'Optional doctor brief to set for the patient',
-          },
-          status: {
-            type: 'string',
-            description: 'Optional status to set for the patient',
-          },
-        },
-        required: ['patient_id'],
-      },
-    },
-  ],
-}));
+server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
 
-// Register tool execution handlers
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params;
-
-  try {
-    switch (name) {
-      case 'get_patient_vitals': {
-        const parsed = GetPatientVitalsSchema.safeParse(args);
-        if (!parsed.success) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `Invalid arguments: ${parsed.error.message}`,
-              },
-            ],
-            isError: true,
-          };
-        }
-
-        const { patient_id } = parsed.data;
-        const result = await pool.query(
-          'SELECT * FROM telemetry_logs WHERE patient_id = $1 ORDER BY created_at DESC LIMIT 5',
-          [patient_id]
-        );
-
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(result.rows, null, 2),
-            },
-          ],
-        };
-      }
-
-      case 'update_patient_status': {
-        const parsed = UpdatePatientStatusSchema.safeParse(args);
-        if (!parsed.success) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `Invalid arguments: ${parsed.error.message}`,
-              },
-            ],
-            isError: true,
-          };
-        }
-
-        const { patient_id, doctor_brief, status } = parsed.data;
-        const result = await pool.query(
-          'UPDATE patients SET doctor_brief = COALESCE($1, doctor_brief), status = COALESCE($2, status) WHERE id = $3 RETURNING *',
-          [doctor_brief ?? null, status ?? null, patient_id]
-        );
-
-        if (result.rows.length === 0) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `Patient with id "${patient_id}" not found`,
-              },
-            ],
-            isError: true,
-          };
-        }
-
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(result.rows[0], null, 2),
-            },
-          ],
-        };
-      }
-
-      default:
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Unknown tool: ${name}`,
-            },
-          ],
-          isError: true,
-        };
-    }
-  } catch (error) {
-    // Return a structured MCP error response instead of throwing unhandled exceptions
-    return {
-      isError: true,
-      content: [
-        {
-          type: 'text',
-          text: `Error executing ${name}: ${(error as Error).message}`,
-        },
-      ],
-    };
-  }
-});
+server.setRequestHandler(CallToolRequestSchema, async (request) =>
+  executeTool(request.params.name, request.params.arguments),
+);
 
 // Start the server with stdio transport
-async function main() {
+async function main(): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error('Hospital Guardian MCP server running on stdio');
 }
 
-// Graceful shutdown: drain and close the connection pool before terminating
-const shutdown = async () => {
+const shutdown = async (): Promise<void> => {
   console.error('Shutting down Hospital Guardian MCP server...');
-  try {
-    await pool.end();
-  } catch (err) {
-    console.error('Error closing PostgreSQL pool:', err);
-  }
+  await shutdownDatabase();
   process.exit(0);
 };
 

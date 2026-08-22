@@ -2,6 +2,16 @@
 
 ICU patient monitoring system with an MCP server, PostgreSQL telemetry storage, a React dashboard, and an optional Python simulator.
 
+## 📌 Project Context & Status
+
+**Hospital Guardian** was developed during an offline hackathon as a practical demonstration of integrating the **Model Context Protocol (MCP)** with clinical databases. 
+
+The primary focus during the sprint was delivering a working end-to-end bridge between AI developer tooling (like Cline and Claude Desktop) and relational patient telemetry data via native PostgreSQL connection pooling. 
+
+Because this repository represents an initial prototype built under strict hackathon time constraints:
+* **Focus:** Fast context retrieval, clean MCP tool interfaces, and reliable local query execution.
+* **In Progress / Roadmap:** Extended clinical schema validations, automated synthetic telemetry generation pipelines, robust session recovery, and end-to-end unit test suites.
+
 ## Project Structure
 
 ```

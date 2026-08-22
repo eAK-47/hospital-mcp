@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { FiAlertOctagon, FiSave } from "react-icons/fi";
 import Checklist from "../components/Checklist";
@@ -5,7 +6,13 @@ import PageHeader from "../components/PageHeader";
 import StatusBadge from "../components/StatusBadge";
 import VitalCard from "../components/VitalCard";
 import { mockApi } from "../services/mockApi";
-import type { Vital } from "../types";
+import type { ChecklistItem, Vital } from "../types";
+
+type AiChecklist = {
+  patient_id: string;
+  condition: string;
+  items: ChecklistItem[];
+};
 
 export default function NurseStation() {
   const patient = mockApi.getPriorityPatient();
@@ -16,6 +23,42 @@ export default function NurseStation() {
     { label: "SpO2", value: patient.vitals.spo2, unit: "%", trend: "down" },
     { label: "Temperature", value: patient.vitals.temperature, unit: "C", trend: "up" }
   ];
+
+  const [aiChecklist, setAiChecklist] = useState<AiChecklist | null>(null);
+  const [aiLoading, setAiLoading] = useState(true);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAiChecklist() {
+      try {
+        const baseUrl = import.meta.env.VITE_BACKEND_BASE_URL || "http://localhost:3001";
+        const response = await fetch(
+          `${baseUrl}/api/ai/checklist?patientId=${encodeURIComponent(patient.id)}`
+        );
+        if (!response.ok) throw new Error(`Backend responded with ${response.status}`);
+        const data = await response.json();
+        if (!cancelled) {
+          setAiChecklist(data);
+          setAiError(null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setAiError(err instanceof Error ? err.message : "Failed to load AI checklist");
+        }
+      } finally {
+        if (!cancelled) setAiLoading(false);
+      }
+    }
+
+    loadAiChecklist();
+    const interval = setInterval(loadAiChecklist, 10000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [patient.id]);
 
   return (
     <section>
@@ -90,9 +133,24 @@ export default function NurseStation() {
 
           <section className="panel p-5">
             <h3 className="text-lg font-bold text-white">AI Generated Checklist</h3>
-            <div className="mt-4 rounded-lg border border-dashed border-hospital-border bg-hospital-bg/45 p-6 text-center text-sm font-semibold text-hospital-muted">
-              Waiting for MCP Server...
-            </div>
+            {aiLoading ? (
+              <div className="mt-4 flex items-center gap-3 rounded-lg border border-dashed border-hospital-border bg-hospital-bg/45 p-6 text-sm font-semibold text-hospital-muted">
+                <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-status-observation" />
+                Generating checklist...
+              </div>
+            ) : aiError ? (
+              <div className="mt-4 rounded-lg border border-dashed border-hospital-border bg-hospital-bg/45 p-6 text-center text-sm font-semibold text-status-critical">
+                {aiError}
+              </div>
+            ) : aiChecklist ? (
+              <div className="mt-4">
+                <div className="mb-3 flex items-center justify-between rounded-lg border border-hospital-border bg-hospital-bg/45 px-4 py-2">
+                  <span className="text-xs font-bold uppercase tracking-wide text-hospital-muted">Condition</span>
+                  <span className="text-sm font-extrabold text-white">{aiChecklist.condition}</span>
+                </div>
+                <Checklist items={aiChecklist.items} />
+              </div>
+            ) : null}
           </section>
         </div>
       </div>

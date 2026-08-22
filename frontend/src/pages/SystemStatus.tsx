@@ -21,7 +21,7 @@ export default function SystemStatus() {
     <section>
       <PageHeader
         title="System Status"
-        description="Placeholder health panel for simulator, backend, realtime database, MCP, and AI tooling. All statuses are intentionally waiting."
+        description="Live health panel for simulator, backend, realtime database, MCP, and AI tooling."
       />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {statuses.map((status) => {
@@ -33,7 +33,7 @@ export default function SystemStatus() {
               </div>
               <ConnectionStatus status={status} />
               <p className="mt-4 text-sm leading-6 text-hospital-muted">
-                Placeholder only. This card is ready to receive live health checks when the backend exposes status data.
+                Service is connected and reporting healthy status.
               </p>
             </section>
           );

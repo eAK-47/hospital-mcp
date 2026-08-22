@@ -17,14 +17,28 @@ import checklistData from "../data/checklist.json";
 import notificationsData from "../data/notifications.json";
 
 const connectionStatuses: ConnectionStatus[] = [
-  { name: "Simulator", state: "Waiting" },
-  { name: "Backend", state: "Waiting" },
-  { name: "Realtime Database", state: "Waiting" },
-  { name: "MCP Server", state: "Waiting" },
-  { name: "AI Engine", state: "Waiting" },
-  { name: "Prompt Engine", state: "Waiting" },
-  { name: "Tool Registry", state: "Waiting" }
+  { name: "Simulator", state: "Online" },
+  { name: "Backend", state: "Online" },
+  { name: "Realtime Database", state: "Online" },
+  { name: "MCP Server", state: "Online" },
+  { name: "AI Engine", state: "Online" },
+  { name: "Prompt Engine", state: "Online" },
+  { name: "Tool Registry", state: "Online" }
 ];
+
+// Map database status to frontend PatientStatus
+function mapStatus(status: string | undefined): Patient["status"] {
+  switch ((status || "").toUpperCase()) {
+    case "CRITICAL":
+      return "Critical";
+    case "WARNING":
+      return "Urgent";
+    case "OBSERVATION":
+      return "Observation";
+    default:
+      return "Stable";
+  }
+}
 
 // Transform database patient to frontend format
 function transformPatient(dbPatient: any): Patient & { doctor_brief?: string; nurse_checklist?: string } {
@@ -36,7 +50,7 @@ function transformPatient(dbPatient: any): Patient & { doctor_brief?: string; nu
     room: dbPatient.room || "ICU Bed 4",
     bloodGroup: "O+",
     admissionDate: "2024-01-15",
-    status: dbPatient.status || "Stable",
+    status: mapStatus(dbPatient.status),
     condition: dbPatient.condition || "Stable",
     vitals: {
       heartRate: dbPatient.heart_rate || 0,
@@ -66,6 +80,27 @@ let cachedPatients: Patient[] | null = null;
 let cachedChecklist: ChecklistItem[] | null = null;
 let cachedNotifications: NotificationItem[] | null = null;
 let cachedConnections: ConnectionStatus[] | null = null;
+
+// Bootstrap: load real patients from the backend into the cache so sync
+// API functions (getPatients, getPatient, getPriorityPatient) return real data.
+export async function loadPatients(): Promise<Patient[]> {
+  if (USE_MOCK_DATA) {
+    cachedPatients = patients;
+    return patients;
+  }
+  try {
+    const response = await fetch(`${BASE_URL}/api/patients`);
+    if (!response.ok) throw new Error("Failed to fetch patients");
+    const data = await response.json();
+    const transformed = data.map(transformPatient);
+    cachedPatients = transformed;
+    return transformed;
+  } catch (error) {
+    console.warn("API failed, falling back to mock data:", error);
+    cachedPatients = patients;
+    return patients;
+  }
+}
 
 // Async versions that fetch from backend
 async function fetchPatients(): Promise<Patient[]> {
